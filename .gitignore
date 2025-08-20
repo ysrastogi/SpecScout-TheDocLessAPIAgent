@@ -6,3 +6,4 @@
 *.nycrc
 /mock-lab/node_modules
 *.DS_Store
+/mock-lab/package-lock.json
