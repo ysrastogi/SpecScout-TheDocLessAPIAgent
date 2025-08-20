@@ -1,0 +1,8 @@
+/node_modules/
+/.env
+/.vscode
+/package-lock.json
+*.bin
+*.nycrc
+/mock-lab/node_modules
+*.DS_Store
