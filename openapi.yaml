@@ -1,0 +1,913 @@
+openapi: 3.1.0
+info:
+  title: GitHub REST API (Reverse Engineered)
+  description: |
+    GitHub REST API specification reverse-engineered through observation and testing.
+    This spec demonstrates doc-less API discovery techniques including:
+    - Pagination patterns (page-based with Link headers)
+    - Rate limiting (X-RateLimit-* headers + 429 responses)
+    - Authentication (Bearer tokens)
+    - Error responses and retry strategies
+  version: 1.0.0
+  contact:
+    name: API Witness Demo
+    url: https://github.com/example/docless-api-agent-demo
+  license:
+    name: MIT
+servers:
+  - url: https://api.github.com
+    description: GitHub API v3
+security:
+  - bearerAuth: []
+  - oauth2: [repo, user]
+paths:
+  /user:
+    get:
+      summary: Get the authenticated user
+      description: Returns details about the authenticated user
+      operationId: getAuthenticatedUser
+      responses:
+        '200':
+          description: Authenticated user details
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/X-RateLimit-Limit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/X-RateLimit-Remaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/X-RateLimit-Reset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              example:
+                id: 583231
+                login: octocat
+                avatar_url: https://github.com/images/error/octocat_happy.gif
+                type: User
+                site_admin: false
+                name: The Octocat
+                company: GitHub
+                blog: https://github.com/blog
+                location: San Francisco
+                email: octocat@github.com
+                public_repos: 2
+                public_gists: 1
+                followers: 20
+                following: 0
+                created_at: "2011-01-25T18:44:36Z"
+                updated_at: "2011-01-25T18:44:36Z"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /users/{username}:
+    get:
+      summary: Get a user
+      description: Get public information about a GitHub user
+      operationId: getUser
+      parameters:
+        - name: username
+          in: path
+          required: true
+          description: The GitHub username
+          schema:
+            type: string
+          example: octocat
+      responses:
+        '200':
+          description: User details
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/X-RateLimit-Limit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/X-RateLimit-Remaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/X-RateLimit-Reset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /user/repos:
+    get:
+      summary: List repositories for the authenticated user
+      description: |
+        Lists repositories that the authenticated user has explicit permission to access.
+        
+        **Pagination**: Uses page-based pagination with Link header
+        - `page`: Page number (default: 1)
+        - `per_page`: Items per page (default: 30, max: 100)
+        - Link header contains: rel="first|prev|next|last"
+        
+        **Rate Limiting**: 5000 requests per hour for authenticated users
+      operationId: listUserRepos
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - name: visibility
+          in: query
+          description: Repository visibility filter
+          schema:
+            type: string
+            enum: [all, public, private]
+            default: all
+        - name: affiliation
+          in: query
+          description: Repository affiliation filter
+          schema:
+            type: string
+            enum: [owner, collaborator, organization_member]
+            default: owner,collaborator,organization_member
+        - name: type
+          in: query
+          description: Repository type filter
+          schema:
+            type: string
+            enum: [all, owner, public, private, member]
+            default: all
+        - name: sort
+          in: query
+          description: Sort field
+          schema:
+            type: string
+            enum: [created, updated, pushed, full_name]
+            default: full_name
+        - name: direction
+          in: query
+          description: Sort direction
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+        - name: since
+          in: query
+          description: Only show repositories updated after this timestamp
+          schema:
+            type: string
+            format: date-time
+          example: "2023-01-01T00:00:00Z"
+      responses:
+        '200':
+          description: List of repositories
+          headers:
+            Link:
+              description: |
+                Pagination links following RFC 5988
+                Example: `<https://api.github.com/user/repos?page=3&per_page=100>; rel="next", <https://api.github.com/user/repos?page=50&per_page=100>; rel="last"`
+              schema:
+                type: string
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/X-RateLimit-Limit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/X-RateLimit-Remaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/X-RateLimit-Reset'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Repository'
+              example:
+                - id: 1296269
+                  name: Hello-World
+                  full_name: octocat/Hello-World
+                  description: This your first repo!
+                  private: false
+                  html_url: https://github.com/octocat/Hello-World
+                  clone_url: https://github.com/octocat/Hello-World.git
+                  ssh_url: git@github.com:octocat/Hello-World.git
+                  stargazers_count: 80
+                  watchers_count: 9
+                  forks_count: 9
+                  language: C
+                  created_at: "2011-01-26T19:01:12Z"
+                  updated_at: "2011-01-26T19:14:43Z"
+                  pushed_at: "2011-01-26T19:06:43Z"
+                  size: 108
+                  default_branch: master
+                  topics: [octocat, atom, electron, api]
+                  archived: false
+                  disabled: false
+                  visibility: public
+                  owner:
+                    id: 1
+                    login: octocat
+                    avatar_url: https://github.com/images/error/octocat_happy.gif
+                    type: User
+                    site_admin: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /users/{username}/repos:
+    get:
+      summary: List repositories for a user
+      description: List public repositories for a user
+      operationId: listUserReposPublic
+      parameters:
+        - name: username
+          in: path
+          required: true
+          description: The GitHub username
+          schema:
+            type: string
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - name: type
+          in: query
+          description: Repository type filter
+          schema:
+            type: string
+            enum: [all, owner, member]
+            default: owner
+        - name: sort
+          in: query
+          description: Sort field
+          schema:
+            type: string
+            enum: [created, updated, pushed, full_name]
+            default: full_name
+        - name: direction
+          in: query
+          description: Sort direction
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+      responses:
+        '200':
+          description: List of repositories
+          headers:
+            Link:
+              description: Pagination links
+              schema:
+                type: string
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/X-RateLimit-Limit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/X-RateLimit-Remaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/X-RateLimit-Reset'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Repository'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /repos/{owner}/{repo}/issues:
+    get:
+      summary: List repository issues
+      description: |
+        List issues in a repository. Only open issues are returned by default.
+        
+        **Observed Behavior**:
+        - Returns both issues and pull requests (pull requests are issues with `pull_request` field)
+        - Pagination follows same pattern as repositories
+        - Supports filtering by milestone, assignee, creator, etc.
+      operationId: listRepoIssues
+      parameters:
+        - name: owner
+          in: path
+          required: true
+          description: Repository owner
+          schema:
+            type: string
+        - name: repo
+          in: path
+          required: true
+          description: Repository name
+          schema:
+            type: string
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - name: milestone
+          in: query
+          description: Milestone filter
+          schema:
+            type: string
+        - name: state
+          in: query
+          description: Issue state filter
+          schema:
+            type: string
+            enum: [open, closed, all]
+            default: open
+        - name: assignee
+          in: query
+          description: Assignee filter
+          schema:
+            type: string
+        - name: creator
+          in: query
+          description: Creator filter
+          schema:
+            type: string
+        - name: mentioned
+          in: query
+          description: Mentioned user filter
+          schema:
+            type: string
+        - name: labels
+          in: query
+          description: Comma-separated list of label names
+          schema:
+            type: string
+        - name: sort
+          in: query
+          description: Sort field
+          schema:
+            type: string
+            enum: [created, updated, comments]
+            default: created
+        - name: direction
+          in: query
+          description: Sort direction
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - name: since
+          in: query
+          description: Only show issues updated after this timestamp
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: List of issues
+          headers:
+            Link:
+              description: Pagination links
+              schema:
+                type: string
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/X-RateLimit-Limit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/X-RateLimit-Remaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/X-RateLimit-Reset'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Issue'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /rate_limit:
+    get:
+      summary: Get rate limit status
+      description: Get the current rate limit status for the authenticated user
+      operationId: getRateLimit
+      responses:
+        '200':
+          description: Rate limit status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rate:
+                    type: object
+                    properties:
+                      limit:
+                        type: integer
+                        description: The maximum number of requests per hour
+                        example: 5000
+                      remaining:
+                        type: integer
+                        description: The number of requests remaining in the current window
+                        example: 4999
+                      reset:
+                        type: integer
+                        description: The time at which the current rate limit window resets (Unix timestamp)
+                        example: 1372700873
+                      used:
+                        type: integer
+                        description: The number of requests used in the current window
+                        example: 1
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: GitHub Personal Access Token
+    oauth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://github.com/login/oauth/authorize
+          tokenUrl: https://github.com/login/oauth/access_token
+          scopes:
+            repo: Full access to repositories
+            user: User profile access
+            admin:repo_hook: Repository hooks access
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      description: Page number (1-based)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      example: 2
+    PerPageParam:
+      name: per_page
+      in: query
+      description: Number of items per page (max 100)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 30
+      example: 100
+
+  headers:
+    X-RateLimit-Limit:
+      description: The maximum number of requests per hour
+      schema:
+        type: integer
+      example: 5000
+    X-RateLimit-Remaining:
+      description: The number of requests remaining in the current window
+      schema:
+        type: integer
+      example: 4999
+    X-RateLimit-Reset:
+      description: The time at which the current rate limit window resets (Unix timestamp)
+      schema:
+        type: integer
+      example: 1372700873
+    X-RateLimit-Used:
+      description: The number of requests used in the current window
+      schema:
+        type: integer
+      example: 1
+    Retry-After:
+      description: The number of seconds to wait before retrying (for 429 responses)
+      schema:
+        type: integer
+      example: 60
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Requires authentication
+            documentation_url: https://docs.github.com/rest/reference/repos#list-repositories-for-the-authenticated-user
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Not Found
+            documentation_url: https://docs.github.com/rest
+    RateLimited:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/Retry-After'
+        X-RateLimit-Limit:
+          $ref: '#/components/headers/X-RateLimit-Limit'
+        X-RateLimit-Remaining:
+          $ref: '#/components/headers/X-RateLimit-Remaining'
+        X-RateLimit-Reset:
+          $ref: '#/components/headers/X-RateLimit-Reset'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: API rate limit exceeded for user ID 12345
+            documentation_url: https://docs.github.com/rest#rate-limiting
+
+  schemas:
+    User:
+      type: object
+      required:
+        - id
+        - login
+        - avatar_url
+        - type
+      properties:
+        id:
+          type: integer
+          description: Unique user ID
+          example: 1
+        login:
+          type: string
+          description: Username
+          example: octocat
+        avatar_url:
+          type: string
+          format: uri
+          description: Avatar image URL
+          example: https://github.com/images/error/octocat_happy.gif
+        html_url:
+          type: string
+          format: uri
+          description: User's GitHub profile URL
+          example: https://github.com/octocat
+        type:
+          type: string
+          enum: [User, Organization]
+          description: Account type
+          example: User
+        site_admin:
+          type: boolean
+          description: Whether user is a GitHub site administrator
+          example: false
+        name:
+          type: string
+          nullable: true
+          description: Display name
+          example: The Octocat
+        company:
+          type: string
+          nullable: true
+          description: Company name
+          example: GitHub
+        blog:
+          type: string
+          nullable: true
+          description: Blog URL
+          example: https://github.com/blog
+        location:
+          type: string
+          nullable: true
+          description: Location
+          example: San Francisco
+        email:
+          type: string
+          nullable: true
+          description: Public email address
+          example: octocat@github.com
+        hireable:
+          type: boolean
+          nullable: true
+          description: Whether user is available for hire
+        bio:
+          type: string
+          nullable: true
+          description: User bio
+        public_repos:
+          type: integer
+          description: Number of public repositories
+          example: 2
+        public_gists:
+          type: integer
+          description: Number of public gists
+          example: 1
+        followers:
+          type: integer
+          description: Number of followers
+          example: 20
+        following:
+          type: integer
+          description: Number of users following
+          example: 0
+        created_at:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+          example: "2011-01-25T18:44:36Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Last profile update timestamp
+          example: "2011-01-25T18:44:36Z"
+
+    Repository:
+      type: object
+      required:
+        - id
+        - name
+        - full_name
+        - private
+        - owner
+        - html_url
+        - clone_url
+        - ssh_url
+        - created_at
+        - updated_at
+        - pushed_at
+      properties:
+        id:
+          type: integer
+          description: Unique repository ID
+          example: 1296269
+        name:
+          type: string
+          description: Repository name
+          example: Hello-World
+        full_name:
+          type: string
+          description: Full repository name (owner/repo)
+          example: octocat/Hello-World
+        description:
+          type: string
+          nullable: true
+          description: Repository description
+          example: This your first repo!
+        private:
+          type: boolean
+          description: Whether repository is private
+          example: false
+        html_url:
+          type: string
+          format: uri
+          description: Repository URL on GitHub
+          example: https://github.com/octocat/Hello-World
+        clone_url:
+          type: string
+          format: uri
+          description: HTTPS clone URL
+          example: https://github.com/octocat/Hello-World.git
+        ssh_url:
+          type: string
+          description: SSH clone URL
+          example: git@github.com:octocat/Hello-World.git
+        stargazers_count:
+          type: integer
+          description: Number of stars
+          example: 80
+        watchers_count:
+          type: integer
+          description: Number of watchers
+          example: 9
+        forks_count:
+          type: integer
+          description: Number of forks
+          example: 9
+        language:
+          type: string
+          nullable: true
+          description: Primary programming language
+          example: C
+        created_at:
+          type: string
+          format: date-time
+          description: Repository creation timestamp
+          example: "2011-01-26T19:01:12Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2011-01-26T19:14:43Z"
+        pushed_at:
+          type: string
+          format: date-time
+          description: Last push timestamp
+          example: "2011-01-26T19:06:43Z"
+        size:
+          type: integer
+          description: Repository size in KB
+          example: 108
+        default_branch:
+          type: string
+          description: Default branch name
+          example: master
+        topics:
+          type: array
+          items:
+            type: string
+          description: Repository topics/tags
+          example: [octocat, atom, electron, api]
+        archived:
+          type: boolean
+          description: Whether repository is archived
+          example: false
+        disabled:
+          type: boolean
+          description: Whether repository is disabled
+          example: false
+        visibility:
+          type: string
+          enum: [public, private, internal]
+          description: Repository visibility
+          example: public
+        owner:
+          $ref: '#/components/schemas/User'
+
+    Issue:
+      type: object
+      required:
+        - id
+        - number
+        - title
+        - user
+        - state
+        - comments
+        - created_at
+        - updated_at
+        - html_url
+      properties:
+        id:
+          type: integer
+          description: Unique issue ID
+          example: 1
+        number:
+          type: integer
+          description: Issue number within repository
+          example: 1347
+        title:
+          type: string
+          description: Issue title
+          example: Found a bug
+        body:
+          type: string
+          nullable: true
+          description: Issue body/description
+          example: I'm having a problem with this.
+        user:
+          $ref: '#/components/schemas/User'
+        labels:
+          type: array
+          items:
+            $ref: '#/components/schemas/Label'
+          description: Labels attached to issue
+        state:
+          type: string
+          enum: [open, closed]
+          description: Issue state
+          example: open
+        assignee:
+          allOf:
+            - $ref: '#/components/schemas/User'
+          nullable: true
+          description: Assigned user
+        assignees:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+          description: All assigned users
+        milestone:
+          allOf:
+            - $ref: '#/components/schemas/Milestone'
+          nullable: true
+          description: Associated milestone
+        comments:
+          type: integer
+          description: Number of comments
+          example: 0
+        created_at:
+          type: string
+          format: date-time
+          description: Issue creation timestamp
+          example: "2011-04-22T13:33:48Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2011-04-22T13:33:48Z"
+        closed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Issue close timestamp
+        html_url:
+          type: string
+          format: uri
+          description: Issue URL on GitHub
+          example: https://github.com/octocat/Hello-World/issues/1347
+        repository_url:
+          type: string
+          format: uri
+          description: Repository API URL
+          example: https://api.github.com/repos/octocat/Hello-World
+
+    Label:
+      type: object
+      required:
+        - id
+        - name
+        - color
+      properties:
+        id:
+          type: integer
+          description: Unique label ID
+          example: 208045946
+        name:
+          type: string
+          description: Label name
+          example: bug
+        color:
+          type: string
+          description: Label color (hex code without #)
+          example: d73a4a
+        description:
+          type: string
+          nullable: true
+          description: Label description
+          example: Something isn't working
+        default:
+          type: boolean
+          description: Whether this is a default label
+          example: true
+
+    Milestone:
+      type: object
+      required:
+        - id
+        - number
+        - title
+        - state
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: integer
+          description: Unique milestone ID
+          example: 1002604
+        number:
+          type: integer
+          description: Milestone number
+          example: 1
+        title:
+          type: string
+          description: Milestone title
+          example: v1.0
+        description:
+          type: string
+          nullable: true
+          description: Milestone description
+        state:
+          type: string
+          enum: [open, closed]
+          description: Milestone state
+          example: open
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2011-04-10T20:09:31Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2011-04-10T20:09:31Z"
+        due_on:
+          type: string
+          format: date-time
+          nullable: true
+          description: Due date
+        closed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Close timestamp
+
+    Error:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: Error message
+          example: Not Found
+        documentation_url:
+          type: string
+          format: uri
+          description: Link to relevant documentation
+          example: https://docs.github.com/rest
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              resource:
+                type: string
+                example: Issue
+              field:
+                type: string
+                example: title
+              code:
+                type: string
+                example: missing_field
+          description: Detailed validation errors

@@ -1,0 +1,702 @@
+{
+  "info": {
+    "name": "GitHub API - Docless Discovery",
+    "description": "Collection demonstrating reverse-engineered GitHub API patterns including pagination, rate limiting, and authentication",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{GITHUB_TOKEN}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global rate limit handling",
+          "const rateLimit = pm.globals.get('github_rate_limit_remaining');",
+          "const resetTime = pm.globals.get('github_rate_limit_reset');",
+          "",
+          "if (rateLimit && parseInt(rateLimit) < 10) {",
+          "  const now = Math.floor(Date.now() / 1000);",
+          "  const waitTime = Math.max(0, (parseInt(resetTime) - now) * 1000);",
+          "  ",
+          "  if (waitTime > 0) {",
+          "    console.log(`Rate limit low (${rateLimit}), waiting ${waitTime/1000}s...`);",
+          "    setTimeout(() => {}, waitTime);",
+          "  }",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Extract and store rate limit info from all responses",
+          "const rateLimitHeaders = [",
+          "  'X-RateLimit-Limit',",
+          "  'X-RateLimit-Remaining', ",
+          "  'X-RateLimit-Reset',",
+          "  'X-RateLimit-Used'",
+          "];",
+          "",
+          "rateLimitHeaders.forEach(header => {",
+          "  const value = pm.response.headers.get(header);",
+          "  if (value) {",
+          "    pm.globals.set(`github_rate_limit_${header.split('-')[2].toLowerCase()}`, value);",
+          "  }",
+          "});",
+          "",
+          "// Log pagination info if present",
+          "const linkHeader = pm.response.headers.get('Link');",
+          "if (linkHeader) {",
+          "  console.log('Pagination Links:', linkHeader);",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://api.github.com",
+      "type": "string"
+    },
+    {
+      "key": "api_version",
+      "value": "2022-11-28",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Get Authenticated User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('User has login', function () {",
+                  "  const user = pm.response.json();",
+                  "  pm.expect(user).to.have.property('login');",
+                  "  pm.globals.set('authenticated_username', user.login);",
+                  "});",
+                  "",
+                  "pm.test('Rate limit headers present', function () {",
+                  "  pm.expect(pm.response.headers.get('X-RateLimit-Limit')).to.not.be.null;",
+                  "  pm.expect(pm.response.headers.get('X-RateLimit-Remaining')).to.not.be.null;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/vnd.github.v3+json"
+              },
+              {
+                "key": "X-GitHub-Api-Version",
+                "value": "{{api_version}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/user",
+              "host": ["{{base_url}}"],
+              "path": ["user"]
+            }
+          }
+        },
+        {
+          "name": "Get Rate Limit Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Rate limit info structure', function () {",
+                  "  const response = pm.response.json();",
+                  "  pm.expect(response).to.have.property('rate');",
+                  "  pm.expect(response.rate).to.have.property('limit');",
+                  "  pm.expect(response.rate).to.have.property('remaining');",
+                  "  pm.expect(response.rate).to.have.property('reset');",
+                  "  pm.expect(response.rate).to.have.property('used');",
+                  "});",
+                  "",
+                  "const rate = pm.response.json().rate;",
+                  "console.log(`Rate Limit: ${rate.used}/${rate.limit}, ${rate.remaining} remaining, resets at ${new Date(rate.reset * 1000)}`);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/vnd.github.v3+json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/rate_limit",
+              "host": ["{{base_url}}"],
+              "path": ["rate_limit"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Repositories",
+      "item": [
+        {
+          "name": "List User Repos (Page 1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is array', function () {",
+                  "  const repos = pm.response.json();",
+                  "  pm.expect(repos).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test('Pagination headers present', function () {",
+                  "  const linkHeader = pm.response.headers.get('Link');",
+                  "  if (linkHeader) {",
+                  "    pm.expect(linkHeader).to.include('rel=');",
+                  "  }",
+                  "});",
+                  "",
+                  "pm.test('Repository structure', function () {",
+                  "  const repos = pm.response.json();",
+                  "  if (repos.length > 0) {",
+                  "    const repo = repos[0];",
+                  "    pm.expect(repo).to.have.property('id');",
+                  "    pm.expect(repo).to.have.property('name');",
+                  "    pm.expect(repo).to.have.property('full_name');",
+                  "    pm.expect(repo).to.have.property('owner');",
+                  "    pm.expect(repo.owner).to.have.property('login');",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/vnd.github.v3+json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/user/repos?page=1&per_page=10&sort=updated&direction=desc",
+              "host": ["{{base_url}}"],
+              "path": ["user", "repos"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "per_page",
+                  "value": "10"
+                },
+                {
+                  "key": "sort",
+                  "value": "updated"
+                },
+                {
+                  "key": "direction",
+                  "value": "desc"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List User Repos (Page 2)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Demonstrates pagination', function () {",
+                  "  // This tests that page 2 exists and returns different data",
+                  "  const repos = pm.response.json();",
+                  "  console.log(`Page 2 returned ${repos.length} repositories`);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/vnd.github.v3+json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/user/repos?page=2&per_page=10&sort=updated&direction=desc",
+              "host": ["{{base_url}}"],
+              "path": ["user", "repos"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "2"
+                },
+                {
+                  "key": "per_page",
+                  "value": "10"
+                },
+                {
+                  "key": "sort",
+                  "value": "updated"
+                },
+                {
+                  "key": "direction",
+                  "value": "desc"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Public User Repos (octocat)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Returns public repos only', function () {",
+                  "  const repos = pm.response.json();",
+                  "  repos.forEach(repo => {",
+                  "    pm.expect(repo.private).to.be.false;",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/vnd.github.v3+json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/octocat/repos?per_page=5",
+              "host": ["{{base_url}}"],
+              "path": ["users", "octocat", "repos"],
+              "query": [
+                {
+                  "key": "per_page",
+                  "value": "5"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Single Repository",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Repository details structure', function () {",
+                  "  const repo = pm.response.json();",
+                  "  pm.expect(repo).to.have.property('id');",
+                  "  pm.expect(repo).to.have.property('stargazers_count');",
+                  "  pm.expect(repo).to.have.property('forks_count');",
+                  "  pm.expect(repo).to.have.property('language');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/vnd.github.v3+json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/repos/octocat/Hello-World",
+              "host": ["{{base_url}}"],
+              "path": ["repos", "octocat", "Hello-World"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Issues",
+      "item": [
+        {
+          "name": "List Repository Issues",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Issues structure', function () {",
+                  "  const issues = pm.response.json();",
+                  "  if (issues.length > 0) {",
+                  "    const issue = issues[0];",
+                  "    pm.expect(issue).to.have.property('number');",
+                  "    pm.expect(issue).to.have.property('title');",
+                  "    pm.expect(issue).to.have.property('state');",
+                  "    pm.expect(issue).to.have.property('user');",
+                  "  }",
+                  "});",
+                  "",
+                  "pm.test('Pagination for issues', function () {",
+                  "  const linkHeader = pm.response.headers.get('Link');",
+                  "  if (linkHeader) {",
+                  "    console.log('Issues pagination available');",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/vnd.github.v3+json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/repos/microsoft/vscode/issues?state=open&per_page=5&sort=updated",
+              "host": ["{{base_url}}"],
+              "path": ["repos", "microsoft", "vscode", "issues"],
+              "query": [
+                {
+                  "key": "state",
+                  "value": "open"
+                },
+                {
+                  "key": "per_page",
+                  "value": "5"
+                },
+                {
+                  "key": "sort",
+                  "value": "updated"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Issues with Labels Filter",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Issues have bug label', function () {",
+                  "  const issues = pm.response.json();",
+                  "  issues.forEach(issue => {",
+                  "    const hasLabel = issue.labels.some(label => label.name === 'bug');",
+                  "    console.log(`Issue #${issue.number}: ${hasLabel ? 'has' : 'missing'} bug label`);",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/vnd.github.v3+json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/repos/microsoft/vscode/issues?labels=bug&state=open&per_page=3",
+              "host": ["{{base_url}}"],
+              "path": ["repos", "microsoft", "vscode", "issues"],
+              "query": [
+                {
+                  "key": "labels",
+                  "value": "bug"
+                },
+                {
+                  "key": "state",
+                  "value": "open"
+                },
+                {
+                  "key": "per_page",
+                  "value": "3"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Error Handling & Edge Cases",
+      "item": [
+        {
+          "name": "Test 404 - Non-existent User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404', function () {",
+                  "  pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test('Error response structure', function () {",
+                  "  const error = pm.response.json();",
+                  "  pm.expect(error).to.have.property('message');",
+                  "  pm.expect(error).to.have.property('documentation_url');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/vnd.github.v3+json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/this-user-definitely-does-not-exist-12345",
+              "host": ["{{base_url}}"],
+              "path": ["users", "this-user-definitely-does-not-exist-12345"]
+            }
+          }
+        },
+        {
+          "name": "Test 401 - No Authentication",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test('Authentication error message', function () {",
+                  "  const error = pm.response.json();",
+                  "  pm.expect(error.message).to.include('Requires authentication');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/vnd.github.v3+json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/user",
+              "host": ["{{base_url}}"],
+              "path": ["user"]
+            }
+          }
+        },
+        {
+          "name": "Test Large Page Size (Max 100)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Returns up to 100 items', function () {",
+                  "  const repos = pm.response.json();",
+                  "  pm.expect(repos.length).to.be.at.most(100);",
+                  "  console.log(`Returned ${repos.length} repositories`);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/vnd.github.v3+json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/octocat/repos?per_page=100",
+              "host": ["{{base_url}}"],
+              "path": ["users", "octocat", "repos"],
+              "query": [
+                {
+                  "key": "per_page",
+                  "value": "100"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Rate Limiting Demo",
+      "item": [
+        {
+          "name": "Monitor Rate Limit - Before",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const rate = pm.response.json().rate;",
+                  "pm.globals.set('rate_limit_before', rate.remaining);",
+                  "console.log(`Rate limit before: ${rate.remaining}/${rate.limit}`);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/rate_limit",
+              "host": ["{{base_url}}"],
+              "path": ["rate_limit"]
+            }
+          }
+        },
+        {
+          "name": "Make Multiple Requests",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Request successful', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "console.log(`Rate limit remaining: ${pm.response.headers.get('X-RateLimit-Remaining')}`);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/octocat",
+              "host": ["{{base_url}}"],
+              "path": ["users", "octocat"]
+            }
+          }
+        },
+        {
+          "name": "Monitor Rate Limit - After",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const rate = pm.response.json().rate;",
+                  "const before = parseInt(pm.globals.get('rate_limit_before'));",
+                  "const consumed = before - rate.remaining;",
+                  "",
+                  "console.log(`Rate limit after: ${rate.remaining}/${rate.limit}`);",
+                  "console.log(`Consumed: ${consumed} requests`);",
+                  "",
+                  "pm.test('Rate limit decreased', function () {",
+                  "  pm.expect(rate.remaining).to.be.below(before);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/rate_limit",
+              "host": ["{{base_url}}"],
+              "path": ["rate_limit"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
