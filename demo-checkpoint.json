@@ -1,0 +1,11 @@
+{
+  "endpoint": "/user/repos",
+  "page": 3,
+  "per_page": 3,
+  "total_processed": 8,
+  "timestamp": "2025-08-19T20:55:20.261Z",
+  "options": {
+    "sort": "updated",
+    "direction": "desc"
+  }
+}
