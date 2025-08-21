@@ -4,7 +4,7 @@ const fs = require('fs/promises');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3004;
 const DATA_DIR = path.join(__dirname, 'data');
 
 // Middleware
