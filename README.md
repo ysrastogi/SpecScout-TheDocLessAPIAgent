@@ -43,6 +43,26 @@ Local Docker environment simulating:
 
 ## 📦 Quick Start
 
+### 🎬 Interactive Demo
+Experience the full Doc-less API Agent in action:
+
+```bash
+# One-command setup and demo
+./quick-start.sh
+
+# Or step by step:
+npm install
+docker-compose up -d
+./demo.sh
+```
+
+**Demo Features:**
+- 🌐 **Interactive Web Interface**: Visual progress tracking with `demo-interface.html`
+- 🎯 **Three Demo Paths**: Live API, Mock Lab, and SDK Development  
+- 📊 **Real-time Metrics**: API calls, tests passed, deliverables generated
+- 🔄 **Live Terminal Output**: Stream demo commands and responses
+
+### 🛠️ Development Setup
 ```bash
 # Install dependencies
 npm install
@@ -56,7 +76,7 @@ npm test
 # Start mock services
 npm run docker:up
 
-# Generate OpenAPI spec
+# Generate OpenAPI spec  
 npm run generate:openapi
 ```
 
