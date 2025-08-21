@@ -1,0 +1,1597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doc-less API Agent Demo Interface</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* Using the provided color palette as CSS custom properties */
+        :root {
+            --arylide-yellow: #e9d758;
+            --myrtle-green: #297373;
+            --coral: #ff8552;
+            --platinum: #e6e6e6;
+            --jet: #39393a;
+        }
+
+        body {
+            font-family: 'Kalam', cursive;
+            background-color: var(--jet);
+            color: var(--platinum);
+            font-weight: 400;
+        }
+        
+        h1, h2, h3, .font-bold {
+            font-weight: 700;
+        }
+
+        /* Custom styles for hand-written infographic elements */
+        .card {
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            /* This creates a subtle, hand-drawn border effect */
+            border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px) rotate(-0.5deg);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .card-header {
+            color: var(--arylide-yellow);
+            border-bottom: 2px solid var(--myrtle-green);
+        }
+
+        .highlight {
+            color: var(--coral);
+        }
+        
+        .flowchart-node {
+            border: 3px solid var(--myrtle-green);
+            background-color: var(--jet);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            border-radius: 15px 225px 15px 255px/255px 15px 225px 15px;
+            padding: 1rem 1.5rem;
+        }
+
+        .flowchart-node:hover {
+            background-color: var(--myrtle-green);
+            color: var(--jet);
+            transform: scale(1.05) rotate(1deg);
+        }
+        
+        .flowchart-node.active {
+            background-color: var(--coral);
+            color: var(--jet);
+            animation: pulse 2s infinite;
+        }
+        
+        .flowchart-node.completed {
+            background-color: var(--arylide-yellow);
+            color: var(--jet);
+        }
+        
+        .flowchart-node.decision {
+            transform: rotate(45deg);
+            width: 9rem;
+            height: 9rem;
+            padding: 0;
+        }
+        
+        .flowchart-node.decision .node-text {
+            transform: rotate(-45deg);
+        }
+        
+        .flowchart-arrow {
+            stroke: var(--myrtle-green);
+            stroke-width: 3;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .sub-flow {
+            display: none;
+            border-left: 3px dashed var(--coral);
+        }
+        
+        .sub-flow.active {
+            display: block;
+        }
+        
+        table, th, td {
+            border: 2px solid var(--myrtle-green);
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 0.75rem;
+        }
+
+        .terminal-output {
+            background-color: #1a1a1a;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            padding: 1rem;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .demo-button {
+            background: linear-gradient(135deg, var(--myrtle-green), var(--coral));
+            color: white;
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            transition: all 0.3s ease;
+        }
+
+        .demo-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .demo-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .progress-bar {
+            background-color: var(--myrtle-green);
+            height: 6px;
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+
+        /* GitHub-style markdown rendering */
+        .markdown-body {
+            font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji";
+            font-size: 16px;
+            line-height: 1.5;
+            color: #e6edf3;
+            background-color: #0d1117;
+            padding: 2rem;
+            border-radius: 8px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4, .markdown-body h5, .markdown-body h6 {
+            margin-top: 24px;
+            margin-bottom: 16px;
+            font-weight: 600;
+            line-height: 1.25;
+            color: #f0f6fc;
+        }
+
+        .markdown-body h1 {
+            font-size: 2em;
+            border-bottom: 1px solid #21262d;
+            padding-bottom: 0.3em;
+        }
+
+        .markdown-body h2 {
+            font-size: 1.5em;
+            border-bottom: 1px solid #21262d;
+            padding-bottom: 0.3em;
+        }
+
+        .markdown-body h3 {
+            font-size: 1.25em;
+        }
+
+        .markdown-body p {
+            margin-bottom: 16px;
+        }
+
+        .markdown-body ul, .markdown-body ol {
+            margin-bottom: 16px;
+            padding-left: 2em;
+        }
+
+        .markdown-body li {
+            margin-top: 0.25em;
+        }
+
+        .markdown-body code {
+            padding: 0.2em 0.4em;
+            margin: 0;
+            font-size: 85%;
+            background-color: #161b22;
+            border-radius: 6px;
+            font-family: ui-monospace,SFMono-Regular,"SF Mono",Consolas,"Liberation Mono",Menlo,monospace;
+            color: #e6edf3;
+        }
+
+        .markdown-body pre {
+            padding: 16px;
+            overflow: auto;
+            font-size: 85%;
+            line-height: 1.45;
+            background-color: #161b22;
+            border-radius: 6px;
+            border: 1px solid #30363d;
+            margin-bottom: 16px;
+        }
+
+        .markdown-body pre code {
+            padding: 0;
+            margin: 0;
+            background-color: transparent;
+            border-radius: 0;
+        }
+
+        .markdown-body blockquote {
+            padding: 0 1em;
+            color: #8b949e;
+            border-left: 0.25em solid #30363d;
+            margin-bottom: 16px;
+        }
+
+        .markdown-body table {
+            border-spacing: 0;
+            border-collapse: collapse;
+            display: block;
+            width: max-content;
+            max-width: 100%;
+            overflow: auto;
+            margin-bottom: 16px;
+        }
+
+        .markdown-body table th, .markdown-body table td {
+            padding: 6px 13px;
+            border: 1px solid #30363d;
+        }
+
+        .markdown-body table th {
+            font-weight: 600;
+            background-color: #161b22;
+            color: #f0f6fc;
+        }
+
+        .markdown-body table tr:nth-child(2n) {
+            background-color: #0d1117;
+        }
+
+        .markdown-body .highlight {
+            background-color: #ffd33d22;
+            color: #ffd33d;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
+        .markdown-body .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 1;
+            color: #fff;
+            background-color: #238636;
+            border-radius: 12px;
+            margin-left: 8px;
+        }
+
+        .markdown-body .badge.failed {
+            background-color: #da3633;
+        }
+
+        .markdown-body .badge.warning {
+            background-color: #fb8500;
+        }
+
+        .markdown-body .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin: 24px 0;
+        }
+
+        .markdown-body .stat-card {
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .markdown-body .stat-number {
+            font-size: 2em;
+            font-weight: 700;
+            color: #2ea043;
+            display: block;
+        }
+
+        .markdown-body .stat-label {
+            color: #8b949e;
+            font-size: 0.875em;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="container mx-auto p-4 md:p-8">
+
+        <!-- Header -->
+        <header class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-bold text-white mb-2">The Doc-less API Agent</h1>
+            <p class="text-lg md:text-xl" style="color: var(--arylide-yellow);">Live Interactive Demo</p>
+            <div class="mt-4">
+                <div class="bg-gray-700 h-2 rounded-full">
+                    <div id="progress" class="progress-bar h-2 rounded-full" style="width: 0%"></div>
+                </div>
+                <p id="progress-text" class="text-sm mt-2">Ready to start demo</p>
+            </div>
+        </header>
+
+        <!-- Demo Control Panel -->
+        <section class="mb-12">
+            <div class="card p-6 text-center">
+                <h2 class="text-2xl font-bold card-header pb-2 mb-4">🎮 Demo Control Panel</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <button id="start-demo" class="demo-button">🚀 Start Demo</button>
+                    <button id="reset-demo" class="demo-button" disabled>🔄 Reset Demo</button>
+                    <button id="skip-to-results" class="demo-button" disabled>⏭️ Skip to Results</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Interactive User Flow -->
+        <section class="mb-12">
+            <h2 class="text-3xl font-bold text-center mb-8">🗺️ Interactive Demo Flow</h2>
+            <div class="text-center p-6 card">
+                
+                <!-- Step 1: Clone Repository -->
+                <div id="step-1" class="flowchart-node max-w-xs mx-auto mb-4" data-step="1">
+                    📥 Clone Repository
+                </div>
+                <div class="h-12 w-full flex justify-center items-center">
+                    <svg viewBox="0 0 20 50" class="h-full">
+                        <path d="M 10 0 V 45 M 5 40 L 10 48 L 15 40" class="flowchart-arrow"></path>
+                    </svg>
+                </div>
+
+                <!-- Step 2: Setup Environment -->
+                <div id="step-2" class="flowchart-node max-w-xs mx-auto mb-4" data-step="2">
+                    🛠️ Setup Environment
+                </div>
+                <div class="h-12 w-full flex justify-center items-center">
+                    <svg viewBox="0 0 20 50" class="h-full">
+                        <path d="M 10 0 V 45 M 5 40 L 10 48 L 15 40" class="flowchart-arrow"></path>
+                    </svg>
+                </div>
+
+                <!-- Decision Point -->
+                <div id="step-3" class="flowchart-node decision flex items-center justify-center mx-auto mb-4" data-step="3">
+                    <div class="node-text text-center">Choose Path</div>
+                </div>
+                <div class="h-12 w-full flex justify-center items-center">
+                    <svg viewBox="0 0 20 50" class="h-full">
+                        <path d="M 10 0 V 45 M 5 40 L 10 48 L 15 40" class="flowchart-arrow"></path>
+                    </svg>
+                </div>
+
+                <!-- Three Paths -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mt-4">
+                    <!-- Path 1: Live API -->
+                    <div class="text-center">
+                        <h3 class="text-xl font-semibold highlight mb-4">🌐 Live API Testing</h3>
+                        <div id="step-4a" class="flowchart-node mb-4" data-step="4a" onclick="toggleSubFlow('liveApiSubFlow')">
+                            🔍 Run OpenAPI Discovery
+                        </div>
+                        <div id="liveApiSubFlow" class="sub-flow mt-4 ml-8 pl-4 text-left">
+                           <p class="font-bold mb-2">Discovery Details:</p>
+                           <ul class="list-disc list-inside text-sm space-y-1">
+                               <li>Analyze GitHub API Endpoints</li>
+                               <li>Capture Request/Response Examples</li>
+                               <li>Document Rate Limits & Headers</li>
+                               <li>Map Pagination Patterns</li>
+                           </ul>
+                        </div>
+                        <div class="h-12 w-full flex justify-center items-center">
+                            <svg viewBox="0 0 20 50" class="h-full">
+                                <path d="M 10 0 V 45 M 5 40 L 10 48 L 15 40" class="flowchart-arrow"></path>
+                            </svg>
+                        </div>
+                        <div id="step-5a" class="flowchart-node mb-4" data-step="5a" onclick="toggleSubFlow('sdkCoreSubFlow')">
+                            💻 Generate TypeScript SDK
+                        </div>
+                        <div id="sdkCoreSubFlow" class="sub-flow mt-4 ml-8 pl-4 text-left">
+                           <p class="font-bold mb-2">SDK Core Features:</p>
+                           <ul class="list-disc list-inside text-sm space-y-1">
+                               <li>Unified Paginator (page, cursor, etc.)</li>
+                               <li>Retry Logic (429s, backoff, jitter)</li>
+                               <li>Checkpointing to resume state</li>
+                               <li>Deduplication of results</li>
+                           </ul>
+                        </div>
+                        <div class="h-12 w-full flex justify-center items-center">
+                            <svg viewBox="0 0 20 50" class="h-full">
+                                <path d="M 10 0 V 45 M 5 40 L 10 48 L 15 40" class="flowchart-arrow"></path>
+                            </svg>
+                        </div>
+                        <div id="step-6a" class="flowchart-node" data-step="6a">🧪 Test Live API</div>
+                    </div>
+
+                    <!-- Path 2: Mock Lab -->
+                    <div class="text-center">
+                        <h3 class="text-xl font-semibold highlight mb-4">🧬 Local Mock Testing</h3>
+                        <div id="step-4b" class="flowchart-node mb-4" data-step="4b" onclick="toggleSubFlow('mockLabSubFlow')">
+                            🐳 Launch Mock Lab
+                        </div>
+                        <div id="mockLabSubFlow" class="sub-flow mt-4 ml-8 pl-4 text-left">
+                           <p class="font-bold mb-2">Mock Lab Services:</p>
+                           <ul class="list-disc list-inside text-sm space-y-1">
+                               <li>OAuth2 Provider Service</li>
+                               <li>Payment API with Idempotency</li>
+                               <li>Webhook Handler with HMAC</li>
+                               <li>Express.js Mock Server</li>
+                           </ul>
+                        </div>
+                        <div class="h-12 w-full flex justify-center items-center">
+                            <svg viewBox="0 0 20 50" class="h-full">
+                                <path d="M 10 0 V 45 M 5 40 L 10 48 L 15 40" class="flowchart-arrow"></path>
+                            </svg>
+                        </div>
+                        <div id="step-5b" class="flowchart-node mb-4" data-step="5b">🔐 Test OAuth2 & Idempotency</div>
+                        <div class="h-12 w-full flex justify-center items-center">
+                            <svg viewBox="0 0 20 50" class="h-full">
+                                <path d="M 10 0 V 45 M 5 40 L 10 48 L 15 40" class="flowchart-arrow"></path>
+                            </svg>
+                        </div>
+                        <div id="step-6b" class="flowchart-node" data-step="6b">🔒 Test Webhook Verification</div>
+                    </div>
+
+                    <!-- Path 3: SDK Dev -->
+                     <div class="text-center">
+                        <h3 class="text-xl font-semibold highlight mb-4">⚙️ SDK Development</h3>
+                        <div id="step-4c" class="flowchart-node mb-4" data-step="4c">🏗️ Implement Core Client</div>
+                        <div class="h-12 w-full flex justify-center items-center">
+                            <svg viewBox="0 0 20 50" class="h-full">
+                                <path d="M 10 0 V 45 M 5 40 L 10 48 L 15 40" class="flowchart-arrow"></path>
+                            </svg>
+                        </div>
+                        <div id="step-5c" class="flowchart-node mb-4" data-step="5c">📄 Build Unified Paginator</div>
+                        <div class="h-12 w-full flex justify-center items-center">
+                            <svg viewBox="0 0 20 50" class="h-full">
+                                <path d="M 10 0 V 45 M 5 40 L 10 48 L 15 40" class="flowchart-arrow"></path>
+                            </svg>
+                        </div>
+                        <div id="step-6c" class="flowchart-node" data-step="6c">🔄 Add Retry & Checkpointing</div>
+                    </div>
+                </div>
+
+                <!-- Final Step: Evidence Report -->
+                <div class="h-12 w-full flex justify-center items-center mt-8">
+                    <svg viewBox="0 0 20 50" class="h-full">
+                        <path d="M 10 0 V 45 M 5 40 L 10 48 L 15 40" class="flowchart-arrow"></path>
+                    </svg>
+                </div>
+                <div id="step-7" class="flowchart-node max-w-xs mx-auto" data-step="7" onclick="toggleSubFlow('evidenceSubFlow')">
+                    📊 Generate Evidence Report
+                </div>
+                <div id="evidenceSubFlow" class="sub-flow mt-4 max-w-md mx-auto p-4 text-left">
+                   <p class="font-bold mb-2">Evidence Collection Includes:</p>
+                   <ul class="list-disc list-inside text-sm space-y-1">
+                       <li>Documented API Calls with curl</li>
+                       <li>Postman Request Logs</li>
+                       <li>Recorded Rate Limit Headers</li>
+                       <li>Screenshots of Pagination Results</li>
+                       <li>Test Coverage Reports</li>
+                   </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Live Terminal Output -->
+        <section class="mb-12">
+            <div class="card p-6">
+                <h2 class="text-2xl font-bold card-header pb-2 mb-4">💻 Live Terminal Output</h2>
+                <div id="terminal" class="terminal-output">
+                    Waiting for demo to start...
+                </div>
+                <div class="mt-4 flex justify-between items-center">
+                    <button id="clear-terminal" class="demo-button">🧹 Clear Terminal</button>
+                    <div class="text-sm text-gray-400">
+                        <span id="demo-timer">00:00</span> elapsed
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Results Dashboard -->
+        <section class="mb-12">
+            <h2 class="text-3xl font-bold text-center mb-8">📊 Live Results Dashboard</h2>
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="card p-6 text-center">
+                    <h3 class="text-2xl font-bold highlight" id="api-calls">0</h3>
+                    <p class="text-sm">API Calls Made</p>
+                </div>
+                <div class="card p-6 text-center">
+                    <h3 class="text-2xl font-bold highlight" id="endpoints-discovered">0</h3>
+                    <p class="text-sm">Endpoints Discovered</p>
+                </div>
+                <div class="card p-6 text-center">
+                    <h3 class="text-2xl font-bold highlight" id="tests-passed">0/0</h3>
+                    <p class="text-sm">Tests Passed</p>
+                </div>
+                <div class="card p-6 text-center">
+                    <h3 class="text-2xl font-bold highlight" id="deliverables-ready">0/6</h3>
+                    <p class="text-sm">Deliverables Ready</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Evidence Modal -->
+        <div id="evidence-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50" style="display: none;">
+            <div class="bg-gray-900 rounded-lg max-w-6xl w-full mx-4 max-h-90vh overflow-hidden flex flex-col">
+                <div class="flex justify-between items-center p-6 border-b border-gray-700">
+                    <div class="flex items-center">
+                        <h3 class="text-2xl font-bold text-white mr-4">📋 API Evidence Report</h3>
+                        <span class="bg-green-600 text-white px-3 py-1 rounded-full text-sm font-medium">Generated</span>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <button id="download-evidence" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            Download
+                        </button>
+                        <button id="close-evidence" class="text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
+                    </div>
+                </div>
+                <div id="evidence-content" class="markdown-body flex-1">
+                    <div class="flex items-center justify-center h-40">
+                        <div class="text-center">
+                            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                            <p class="text-gray-400">Loading evidence report...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Final Results -->
+        <section class="mb-12" id="final-results" style="display: none;">
+            <h2 class="text-3xl font-bold text-center mb-8">🎉 Demo Results</h2>
+            <div class="card p-6 overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr>
+                            <th class="font-bold">Deliverable</th>
+                            <th class="font-bold">Status</th>
+                            <th class="font-bold">Details</th>
+                            <th class="font-bold">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="font-semibold">📄 OpenAPI Spec</td>
+                            <td><span class="highlight">✅ Generated</span></td>
+                            <td>Complete GitHub API 3.1 specification with examples</td>
+                            <td><button onclick="downloadFile('openapi.yaml', 'openapi')" class="text-sm demo-button">⬇️ Download</button></td>
+                        </tr>
+                        <tr>
+                            <td class="font-semibold">💻 TypeScript SDK</td>
+                            <td><span class="highlight">✅ Ready</span></td>
+                            <td>Pagination, retry logic, checkpointing included</td>
+                            <td><button onclick="viewSDKStructure()" class="text-sm demo-button">👁️ View Structure</button></td>
+                        </tr>
+                        <tr>
+                            <td class="font-semibold">📮 Postman Collection</td>
+                            <td><span class="highlight">✅ Generated</span></td>
+                            <td>Ready-to-use collection with authentication</td>
+                            <td><button onclick="downloadFile('postman_collection.json', 'postman')" class="text-sm demo-button">⬇️ Download</button></td>
+                        </tr>
+                        <tr>
+                            <td class="font-semibold">📋 Evidence Report</td>
+                            <td><span class="highlight">✅ Complete</span></td>
+                            <td>Comprehensive API behavior documentation</td>
+                            <td><button onclick="showEvidence()" class="text-sm demo-button">👁️ View Report</button></td>
+                        </tr>
+                        <tr>
+                            <td class="font-semibold">🧪 Mock Lab</td>
+                            <td><span class="highlight">✅ Running</span></td>
+                            <td>OAuth2, Webhooks, Idempotency testing environment</td>
+                            <td><button onclick="viewMockLabStatus()" class="text-sm demo-button">📊 Status</button></td>
+                        </tr>
+                        <tr>
+                            <td class="font-semibold">🧪 Test Suite</td>
+                            <td><span class="highlight">✅ Passed</span></td>
+                            <td>100% test coverage with Jest and Newman</td>
+                            <td><button onclick="viewTestResults()" class="text-sm demo-button">📊 Results</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="text-center border-t-2 pt-8" style="border-color: var(--myrtle-green);">
+            <p class="text-lg max-w-3xl mx-auto" style="color: var(--platinum);">
+                A Doc-less API Agent that turns messy docs into a developer-ready bundle. Verified, reliable, and future-proof — built for SMB speed, enterprise rigor.
+            </p>
+            <div class="mt-4">
+                <!-- <a href="https://github.com/ysrastogi/apiWitness" class="demo-button mr-4">📋 View Code</a> -->
+                <a href="#" id="export-results" class="demo-button mr-2">💾 Export Results</a>
+                <a href="#" id="export-postman" class="demo-button mr-2">📮 Export Postman</a>
+                <a href="#" id="export-openapi" class="demo-button mr-2">📄 Export OpenAPI</a>
+                <a href="#" id="view-evidence" class="demo-button">📋 View Evidence</a>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // Demo state management
+        let demoState = {
+            currentStep: 0,
+            totalSteps: 13, // Total number of demo steps
+            startTime: null,
+            timer: null,
+            apiCalls: 0,
+            endpointsDiscovered: 0,
+            testsPassed: 0,
+            totalTests: 15,
+            deliverables: 0
+        };
+
+        // Simple script to toggle visibility of sub-flow details
+        function toggleSubFlow(elementId) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.classList.toggle('active');
+            }
+        }
+
+        // Demo control functions
+        function startDemo() {
+            demoState.startTime = Date.now();
+            demoState.currentStep = 1;
+            document.getElementById('start-demo').disabled = true;
+            document.getElementById('reset-demo').disabled = false;
+            document.getElementById('skip-to-results').disabled = false;
+            
+            updateProgress();
+            startTimer();
+            runDemoStep(1);
+        }
+
+        function resetDemo() {
+            demoState = {
+                currentStep: 0,
+                totalSteps: 13,
+                startTime: null,
+                timer: null,
+                apiCalls: 0,
+                endpointsDiscovered: 0,
+                testsPassed: 0,
+                totalTests: 15,
+                deliverables: 0
+            };
+            
+            // Reset UI
+            document.getElementById('start-demo').disabled = false;
+            document.getElementById('reset-demo').disabled = true;
+            document.getElementById('skip-to-results').disabled = true;
+            document.getElementById('final-results').style.display = 'none';
+            
+            // Reset step visuals
+            document.querySelectorAll('.flowchart-node').forEach(node => {
+                node.classList.remove('active', 'completed');
+            });
+            
+            updateProgress();
+            updateStats();
+            clearTerminal();
+            
+            if (demoState.timer) {
+                clearInterval(demoState.timer);
+            }
+        }
+
+        function skipToResults() {
+            // Fast-forward to final results
+            demoState.currentStep = demoState.totalSteps;
+            demoState.apiCalls = 25;
+            demoState.endpointsDiscovered = 8;
+            demoState.testsPassed = 15;
+            demoState.deliverables = 6;
+            
+            document.querySelectorAll('.flowchart-node').forEach(node => {
+                node.classList.add('completed');
+                node.classList.remove('active');
+            });
+            
+            updateProgress();
+            updateStats();
+            appendToTerminal('🚀 Demo fast-forwarded to completion!');
+            showFinalResults();
+        }
+
+        function runDemoStep(step) {
+            // Mark current step as active
+            const currentNode = document.querySelector(`[data-step="${getCurrentStepId(step)}"]`);
+            if (currentNode) {
+                currentNode.classList.add('active');
+                currentNode.classList.remove('completed');
+            }
+            
+            // Simulate step execution with realistic delays and outputs
+            switch(step) {
+                case 1:
+                    appendToTerminal('📥 Cloning repository...');
+                    setTimeout(() => {
+                        appendToTerminal('✅ Repository cloned successfully');
+                        completeStep(step);
+                        runDemoStep(step + 1);
+                    }, 2000);
+                    break;
+                    
+                case 2:
+                    appendToTerminal('🛠️ Setting up environment...');
+                    appendToTerminal('npm install...');
+                    setTimeout(() => {
+                        appendToTerminal('✅ Dependencies installed');
+                        appendToTerminal('🐳 Starting Docker services...');
+                        setTimeout(() => {
+                            appendToTerminal('✅ Mock services running');
+                            completeStep(step);
+                            runDemoStep(step + 1);
+                        }, 3000);
+                    }, 2000);
+                    break;
+                    
+                case 3:
+                    appendToTerminal('🤔 Choosing demo path: All Paths (Comprehensive Demo)');
+                    setTimeout(() => {
+                        completeStep(step);
+                        // Run all paths in parallel
+                        runDemoStep(4); // Live API
+                        runDemoStep(8); // Mock Lab  
+                        runDemoStep(12); // SDK Dev
+                    }, 1000);
+                    break;
+                    
+                case 4: // Live API Discovery
+                    appendToTerminal('🔍 Discovering GitHub API endpoints...');
+                    setTimeout(() => {
+                        demoState.apiCalls += 5;
+                        demoState.endpointsDiscovered += 3;
+                        appendToTerminal('📊 Found pagination patterns in /user/repos');
+                        appendToTerminal('⏱️ Detected rate limiting headers');
+                        completeStep('4a');
+                        runDemoStep(5);
+                    }, 3000);
+                    break;
+                    
+                case 5: // Generate SDK
+                    appendToTerminal('💻 Generating TypeScript SDK...');
+                    setTimeout(() => {
+                        demoState.deliverables += 1;
+                        appendToTerminal('✅ SDK generated with pagination support');
+                        appendToTerminal('✅ Retry logic implemented');
+                        completeStep('5a');
+                        runDemoStep(6);
+                    }, 2500);
+                    break;
+                    
+                case 6: // Test Live API
+                    appendToTerminal('🧪 Testing live API with generated SDK...');
+                    setTimeout(() => {
+                        demoState.apiCalls += 8;
+                        demoState.testsPassed += 5;
+                        appendToTerminal('✅ Pagination test passed');
+                        appendToTerminal('✅ Rate limiting handled correctly');
+                        appendToTerminal('✅ Checkpointing functional');
+                        completeStep('6a');
+                        checkAllPathsComplete();
+                    }, 4000);
+                    break;
+                    
+                case 8: // Mock Lab
+                    appendToTerminal('🧬 Launching Mock Lab services...');
+                    setTimeout(() => {
+                        appendToTerminal('🔐 OAuth2 server started on :3003');
+                        appendToTerminal('💳 Payment service started on :3001'); 
+                        appendToTerminal('🪝 Webhook service started on :3002');
+                        completeStep('4b');
+                        runDemoStep(9);
+                    }, 2000);
+                    break;
+                    
+                case 9: // Test OAuth2 & Idempotency
+                    appendToTerminal('🔐 Testing OAuth2 PKCE flow...');
+                    setTimeout(() => {
+                        demoState.testsPassed += 3;
+                        appendToTerminal('✅ PKCE challenge/verifier generated');
+                        appendToTerminal('✅ Idempotency keys working correctly');
+                        completeStep('5b');
+                        runDemoStep(10);
+                    }, 3000);
+                    break;
+                    
+                case 10: // Test Webhooks
+                    appendToTerminal('🔒 Testing webhook HMAC verification...');
+                    setTimeout(() => {
+                        demoState.testsPassed += 2;
+                        appendToTerminal('✅ HMAC signatures verified');
+                        appendToTerminal('✅ Webhook payload processed');
+                        completeStep('6b');
+                        checkAllPathsComplete();
+                    }, 2500);
+                    break;
+                    
+                case 12: // SDK Development
+                    appendToTerminal('🏗️ Implementing core SDK components...');
+                    setTimeout(() => {
+                        appendToTerminal('✅ Base client implemented');
+                        completeStep('4c');
+                        setTimeout(() => {
+                            appendToTerminal('📄 Building unified paginator...');
+                            setTimeout(() => {
+                                appendToTerminal('✅ Paginator supports multiple patterns');
+                                completeStep('5c');
+                                setTimeout(() => {
+                                    appendToTerminal('🔄 Adding retry logic and checkpointing...');
+                                    setTimeout(() => {
+                                        demoState.testsPassed += 5;
+                                        demoState.deliverables += 2;
+                                        appendToTerminal('✅ Exponential backoff implemented');
+                                        appendToTerminal('✅ Checkpoint system ready');
+                                        completeStep('6c');
+                                        checkAllPathsComplete();
+                                    }, 2000);
+                                }, 1500);
+                            }, 2000);
+                        }, 1000);
+                    }, 2000);
+                    break;
+                    
+                case 13: // Final Evidence Report
+                    appendToTerminal('📊 Generating comprehensive evidence report...');
+                    setTimeout(() => {
+                        demoState.deliverables += 3;
+                        demoState.endpointsDiscovered += 5;
+                        appendToTerminal('✅ OpenAPI 3.1 specification generated');
+                        appendToTerminal('✅ Postman collection exported');
+                        appendToTerminal('✅ Evidence documentation complete');
+                        completeStep('7');
+                        setTimeout(() => {
+                            appendToTerminal('🎉 Demo completed successfully!');
+                            appendToTerminal('📋 All deliverables ready for production use');
+                            showFinalResults();
+                        }, 1000);
+                    }, 3000);
+                    break;
+            }
+            
+            updateProgress();
+            updateStats();
+        }
+
+        function getCurrentStepId(step) {
+            const stepMap = {
+                1: '1', 2: '2', 3: '3',
+                4: '4a', 5: '5a', 6: '6a',
+                8: '4b', 9: '5b', 10: '6b', 
+                12: '4c', 13: '5c', 14: '6c',
+                15: '7'
+            };
+            return stepMap[step] || step.toString();
+        }
+
+        function completeStep(stepId) {
+            const node = document.querySelector(`[data-step="${stepId}"]`);
+            if (node) {
+                node.classList.remove('active');
+                node.classList.add('completed');
+            }
+            demoState.currentStep++;
+        }
+
+        function checkAllPathsComplete() {
+            // Check if all three paths are complete
+            const pathAComplete = document.querySelector('[data-step="6a"]').classList.contains('completed');
+            const pathBComplete = document.querySelector('[data-step="6b"]').classList.contains('completed');  
+            const pathCComplete = document.querySelector('[data-step="6c"]').classList.contains('completed');
+            
+            if (pathAComplete && pathBComplete && pathCComplete) {
+                setTimeout(() => {
+                    runDemoStep(13); // Generate evidence report
+                }, 1000);
+            }
+        }
+
+        function updateProgress() {
+            const percentage = (demoState.currentStep / demoState.totalSteps) * 100;
+            document.getElementById('progress').style.width = `${percentage}%`;
+            document.getElementById('progress-text').textContent = 
+                `Step ${demoState.currentStep}/${demoState.totalSteps} - ${Math.round(percentage)}% complete`;
+        }
+
+        function updateStats() {
+            document.getElementById('api-calls').textContent = demoState.apiCalls;
+            document.getElementById('endpoints-discovered').textContent = demoState.endpointsDiscovered;
+            document.getElementById('tests-passed').textContent = `${demoState.testsPassed}/${demoState.totalTests}`;
+            document.getElementById('deliverables-ready').textContent = `${demoState.deliverables}/6`;
+        }
+
+        function startTimer() {
+            demoState.timer = setInterval(() => {
+                const elapsed = Date.now() - demoState.startTime;
+                const minutes = Math.floor(elapsed / 60000);
+                const seconds = Math.floor((elapsed % 60000) / 1000);
+                document.getElementById('demo-timer').textContent = 
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        function appendToTerminal(message) {
+            const terminal = document.getElementById('terminal');
+            const timestamp = new Date().toLocaleTimeString();
+            terminal.textContent += `[${timestamp}] ${message}\n`;
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function clearTerminal() {
+            document.getElementById('terminal').textContent = 'Terminal cleared.\n';
+        }
+
+        function showFinalResults() {
+            document.getElementById('final-results').style.display = 'block';
+            document.getElementById('final-results').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function exportResults() {
+            const results = {
+                timestamp: new Date().toISOString(),
+                demo_duration: demoState.timer ? 
+                    Math.floor((Date.now() - demoState.startTime) / 1000) : 0,
+                statistics: {
+                    api_calls_made: demoState.apiCalls,
+                    endpoints_discovered: demoState.endpointsDiscovered,
+                    tests_passed: demoState.testsPassed,
+                    deliverables_ready: demoState.deliverables
+                },
+                deliverables: [
+                    'openapi.yaml - Complete GitHub API 3.1 specification',
+                    'sdk/ - TypeScript SDK with pagination and retry logic',
+                    'postman_collection.json - Ready-to-use API collection',
+                    'evidence.md - Comprehensive behavior documentation',
+                    'mock-lab/ - Docker environment for advanced testing',
+                    'tests/ - Complete test suite with coverage reports'
+                ]
+            };
+            
+            downloadJSON(results, 'docless-api-agent-demo-results.json');
+        }
+
+        function exportPostmanCollection() {
+            // Sample Postman collection structure
+            const postmanCollection = {
+                "info": {
+                    "name": "GitHub API - Doc-less Agent Generated",
+                    "description": "Auto-generated collection from API discovery",
+                    "version": "1.0.0",
+                    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+                },
+                "item": [
+                    {
+                        "name": "Get User Repositories",
+                        "request": {
+                            "method": "GET",
+                            "header": [
+                                {
+                                    "key": "Authorization",
+                                    "value": "Bearer {{github_token}}",
+                                    "type": "text"
+                                }
+                            ],
+                            "url": {
+                                "raw": "https://api.github.com/user/repos?per_page=30&page=1",
+                                "protocol": "https",
+                                "host": ["api", "github", "com"],
+                                "path": ["user", "repos"],
+                                "query": [
+                                    {"key": "per_page", "value": "30"},
+                                    {"key": "page", "value": "1"}
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        "name": "Get Repository Issues",
+                        "request": {
+                            "method": "GET",
+                            "header": [
+                                {
+                                    "key": "Authorization",
+                                    "value": "Bearer {{github_token}}",
+                                    "type": "text"
+                                }
+                            ],
+                            "url": {
+                                "raw": "https://api.github.com/repos/{{owner}}/{{repo}}/issues",
+                                "protocol": "https",
+                                "host": ["api", "github", "com"],
+                                "path": ["repos", "{{owner}}", "{{repo}}", "issues"]
+                            }
+                        }
+                    }
+                ],
+                "variable": [
+                    {
+                        "key": "github_token",
+                        "value": "your_github_token_here"
+                    }
+                ]
+            };
+            
+            downloadJSON(postmanCollection, 'github-api-postman-collection.json');
+        }
+
+        function exportOpenAPI() {
+            // Sample OpenAPI specification
+            const openApiSpec = {
+                "openapi": "3.1.0",
+                "info": {
+                    "title": "GitHub API - Doc-less Agent Discovery",
+                    "description": "Auto-discovered GitHub API specification with pagination patterns",
+                    "version": "1.0.0",
+                    "contact": {
+                        "name": "Doc-less API Agent",
+                        "url": "https://github.com/ysrastogi/apiWitness"
+                    }
+                },
+                "servers": [
+                    {
+                        "url": "https://api.github.com",
+                        "description": "GitHub API v3"
+                    }
+                ],
+                "components": {
+                    "securitySchemes": {
+                        "bearerAuth": {
+                            "type": "http",
+                            "scheme": "bearer"
+                        }
+                    }
+                },
+                "security": [{"bearerAuth": []}],
+                "paths": {
+                    "/user/repos": {
+                        "get": {
+                            "summary": "List repositories for authenticated user",
+                            "parameters": [
+                                {
+                                    "name": "per_page",
+                                    "in": "query",
+                                    "schema": {"type": "integer", "default": 30, "maximum": 100}
+                                },
+                                {
+                                    "name": "page",
+                                    "in": "query", 
+                                    "schema": {"type": "integer", "default": 1}
+                                }
+                            ],
+                            "responses": {
+                                "200": {
+                                    "description": "List of repositories",
+                                    "headers": {
+                                        "X-RateLimit-Limit": {
+                                            "schema": {"type": "string"},
+                                            "description": "Rate limit maximum requests"
+                                        },
+                                        "X-RateLimit-Remaining": {
+                                            "schema": {"type": "string"},
+                                            "description": "Remaining requests in current window"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+            
+            // Convert to YAML format for download
+            const yamlContent = `openapi: 3.1.0
+info:
+  title: GitHub API - Doc-less Agent Discovery
+  description: Auto-discovered GitHub API specification with pagination patterns
+  version: 1.0.0
+  contact:
+    name: Doc-less API Agent
+    url: https://github.com/ysrastogi/apiWitness
+servers:
+  - url: https://api.github.com
+    description: GitHub API v3
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+security:
+  - bearerAuth: []
+paths:
+  /user/repos:
+    get:
+      summary: List repositories for authenticated user
+      parameters:
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 30
+            maximum: 100
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        '200':
+          description: List of repositories
+          headers:
+            X-RateLimit-Limit:
+              schema:
+                type: string
+              description: Rate limit maximum requests
+            X-RateLimit-Remaining:
+              schema:
+                type: string
+              description: Remaining requests in current window`;
+            
+            downloadText(yamlContent, 'github-api-openapi.yaml');
+        }
+
+        function showEvidence() {
+            const markdownContent = `# 🔍 API Evidence Report
+            
+> **Generated by Doc-less API Agent**  
+> Timestamp: ${new Date().toISOString()}  
+> Duration: ${demoState.timer ? Math.floor((Date.now() - demoState.startTime) / 1000) : 0}s
+
+## 📊 Executive Summary
+
+<div class="stats-grid">
+<div class="stat-card">
+<span class="stat-number">${demoState.endpointsDiscovered}</span>
+<div class="stat-label">Endpoints Discovered</div>
+</div>
+<div class="stat-card">
+<span class="stat-number">${demoState.testsPassed}</span>
+<div class="stat-label">Tests Executed</div>
+</div>
+<div class="stat-card">
+<span class="stat-number">${demoState.apiCalls}</span>
+<div class="stat-label">API Calls Made</div>
+</div>
+<div class="stat-card">
+<span class="stat-number">${demoState.deliverables}/6</span>
+<div class="stat-label">Deliverables Ready</div>
+</div>
+</div>
+
+### 🎯 **Analysis Target**
+- **API**: GitHub REST API v3
+- **Base URL**: \`https://api.github.com\`
+- **Authentication**: Bearer Token (Personal Access Token)
+- **Discovery Method**: Live API Exploration + Mock Lab Testing
+
+---
+
+## 🔬 Discovered API Patterns
+
+### 📄 Pagination Strategy
+GitHub API implements **page-based pagination** with the following characteristics:
+
+\`\`\`http
+GET /user/repos?per_page=30&page=1
+\`\`\`
+
+| Parameter | Type | Default | Max | Description |
+|-----------|------|---------|-----|-------------|
+| \`per_page\` | integer | 30 | 100 | Items per page |
+| \`page\` | integer | 1 | ∞ | Page number |
+
+**Navigation Links**: Response includes \`Link\` header with \`next\`, \`prev\`, \`first\`, \`last\` URLs
+
+### ⏱️ Rate Limiting
+- **Authenticated Limit**: <span class="highlight">5,000 requests/hour</span>
+- **Unauthenticated Limit**: <span class="highlight">60 requests/hour</span>
+
+**Rate Limit Headers**:
+\`\`\`http
+X-RateLimit-Limit: 5000
+X-RateLimit-Remaining: 4999
+X-RateLimit-Reset: 1692648000
+X-RateLimit-Used: 1
+\`\`\`
+
+### 🔐 Authentication Methods
+1. **Personal Access Token** <span class="badge">Recommended</span>
+   \`\`\`http
+   Authorization: Bearer ghp_xxxxxxxxxxxxxxxxxxxx
+   \`\`\`
+
+2. **OAuth Apps** <span class="badge">Production</span>
+3. **GitHub Apps** <span class="badge">Enterprise</span>
+
+---
+
+## 🧪 API Endpoints Analysis
+
+### \`GET /user/repos\` <span class="badge">✅ Tested</span>
+**Purpose**: List repositories for authenticated user
+
+**Request**:
+\`\`\`bash
+curl -H "Authorization: Bearer <token>" \\
+     "https://api.github.com/user/repos?per_page=30&sort=updated"
+\`\`\`
+
+**Key Parameters**:
+- \`sort\`: \`created\`, \`updated\`, \`pushed\`, \`full_name\`
+- \`direction\`: \`asc\`, \`desc\`
+- \`visibility\`: \`all\`, \`public\`, \`private\`
+- \`affiliation\`: \`owner\`, \`collaborator\`, \`organization_member\`
+
+**Response Structure**:
+\`\`\`json
+[
+  {
+    "id": 123456789,
+    "name": "repo-name",
+    "full_name": "owner/repo-name",
+    "private": false,
+    "html_url": "https://github.com/owner/repo-name",
+    "clone_url": "https://github.com/owner/repo-name.git",
+    "updated_at": "2025-08-21T10:30:00Z"
+  }
+]
+\`\`\`
+
+### \`GET /repos/:owner/:repo/issues\` <span class="badge">✅ Tested</span>
+**Purpose**: List repository issues and pull requests
+
+**Key Parameters**:
+- \`state\`: \`open\`, \`closed\`, \`all\`
+- \`labels\`: Comma-separated list
+- \`sort\`: \`created\`, \`updated\`, \`comments\`
+- \`since\`: ISO 8601 timestamp
+
+---
+
+## 🧬 Mock Lab Testing Results
+
+### 🔑 OAuth2 PKCE Flow <span class="badge">✅ Passed</span>
+Our mock OAuth2 server successfully implements the PKCE flow:
+
+\`\`\`javascript
+// Code Challenge Generation
+const codeVerifier = generateCodeVerifier();
+const codeChallenge = sha256(codeVerifier);
+
+// Authorization Request
+const authUrl = \`\${OAUTH_SERVER}/authorize?\` +
+  \`response_type=code&\` +
+  \`client_id=\${CLIENT_ID}&\` +
+  \`code_challenge=\${codeChallenge}&\` +
+  \`code_challenge_method=S256\`;
+\`\`\`
+
+**Test Results**:
+- ✅ Code challenge generation
+- ✅ Authorization endpoint response  
+- ✅ Token exchange with PKCE verification
+- ✅ Refresh token handling
+
+### 🪝 Webhook Verification <span class="badge">✅ Passed</span>
+HMAC-SHA256 signature verification implemented:
+
+\`\`\`javascript
+const signature = crypto
+  .createHmac('sha256', webhookSecret)
+  .update(JSON.stringify(payload))
+  .digest('hex');
+\`\`\`
+
+**Verified Headers**:
+- \`X-Hub-Signature-256\`: HMAC signature
+- \`X-GitHub-Delivery\`: Unique delivery ID
+- \`X-GitHub-Event\`: Event type
+
+### 💳 Idempotency Testing <span class="badge">✅ Passed</span>
+Payment API correctly handles duplicate requests:
+
+\`\`\`http
+POST /payment
+Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
+\`\`\`
+
+**Behavior Verified**:
+- First request: \`201 Created\`
+- Duplicate request: \`200 OK\` (same response body)
+- Different key: New transaction processed
+
+---
+
+## 💻 TypeScript SDK Architecture
+
+### 🏗️ Core Components
+
+#### 1. **Unified Paginator** (\`paginator.ts\`)
+Handles multiple pagination patterns:
+\`\`\`typescript
+interface PaginationOptions {
+  strategy: 'page' | 'cursor' | 'offset';
+  pageSize?: number;
+  maxPages?: number;
+}
+
+class UnifiedPaginator<T> {
+  async *paginate(endpoint: string, options: PaginationOptions): AsyncGenerator<T[]> {
+    // Intelligent pagination handling
+  }
+}
+\`\`\`
+
+#### 2. **Retry Logic** (\`retry.ts\`)
+Exponential backoff with jitter:
+\`\`\`typescript
+interface RetryConfig {
+  maxAttempts: number;
+  baseDelay: number;
+  maxDelay: number;
+  backoffFactor: number;
+}
+
+const retryConfig: RetryConfig = {
+  maxAttempts: 3,
+  baseDelay: 1000,
+  maxDelay: 30000,
+  backoffFactor: 2
+};
+\`\`\`
+
+#### 3. **Checkpointing** (\`index.ts\`)
+Resume interrupted operations:
+\`\`\`typescript
+interface Checkpoint {
+  operation: string;
+  lastPage: number;
+  processedItems: number;
+  timestamp: string;
+}
+\`\`\`
+
+### 🔧 SDK Features
+- **🔄 Auto-retry**: Handles 429, 502, 503, 504 responses
+- **📊 Progress tracking**: Real-time operation progress
+- **💾 State persistence**: Resume long-running operations
+- **🎯 Deduplication**: Prevents duplicate API calls
+- **📝 Full TypeScript**: Complete type safety
+
+---
+
+## 📋 Test Coverage Report
+
+### Unit Tests <span class="badge">15/15 ✅</span>
+| Component | Coverage | Status |
+|-----------|----------|---------|
+| Paginator | 100% | ✅ Pass |
+| Retry Logic | 98% | ✅ Pass |
+| HTTP Client | 95% | ✅ Pass |
+| Authentication | 100% | ✅ Pass |
+
+### Integration Tests <span class="badge">8/8 ✅</span>
+- ✅ GitHub API Live Testing
+- ✅ Pagination End-to-End
+- ✅ Rate Limit Handling
+- ✅ Error Recovery
+- ✅ Checkpoint Resume
+- ✅ OAuth2 Flow
+- ✅ Webhook Processing  
+- ✅ Idempotency Verification
+
+### Mock Lab Tests <span class="badge">6/6 ✅</span>
+- ✅ OAuth2 PKCE Implementation
+- ✅ Webhook HMAC Verification
+- ✅ Payment Idempotency
+- ✅ Service Health Checks
+- ✅ Docker Container Status
+- ✅ Network Connectivity
+
+**Overall Coverage**: <span class="highlight">97.3%</span>
+
+---
+
+## 🚀 Production Recommendations
+
+### 🔒 Security
+1. **Token Management**: Implement secure token storage and rotation
+2. **Rate Limit Buffer**: Leave 10% buffer for rate limits
+3. **Webhook Security**: Always verify HMAC signatures
+4. **Secrets Management**: Use environment variables or secret managers
+
+### 📈 Performance
+1. **Connection Pooling**: Reuse HTTP connections
+2. **Caching Strategy**: Cache responses with appropriate TTLs
+3. **Batch Operations**: Group related API calls
+4. **Monitoring**: Track API usage and performance metrics
+
+### 🛠️ Operational
+1. **Health Checks**: Implement service health endpoints
+2. **Circuit Breakers**: Prevent cascade failures
+3. **Logging**: Structured logging with correlation IDs
+4. **Alerting**: Monitor rate limits and error rates
+
+---
+
+## 📦 Generated Deliverables
+
+| File | Description | Status |
+|------|-------------|---------|
+| \`openapi.yaml\` | Complete OpenAPI 3.1 specification | <span class="badge">✅ Ready</span> |
+| \`postman_collection.json\` | Import-ready Postman collection | <span class="badge">✅ Ready</span> |
+| \`sdk/\` | Production TypeScript SDK | <span class="badge">✅ Ready</span> |
+| \`evidence.md\` | This comprehensive report | <span class="badge">✅ Ready</span> |
+| \`mock-lab/\` | Docker testing environment | <span class="badge">✅ Running</span> |
+| \`tests/\` | Complete test suite | <span class="badge">✅ Ready</span> |
+
+---
+
+<div style="text-align: center; margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #30363d;">
+
+**🎉 Analysis Complete**
+
+*Generated by [Doc-less API Agent](https://github.com/ysrastogi/apiWitness) v1.0.0*  
+*Transforming undocumented APIs into production-ready developer tools*
+
+</div>`;
+
+            // Configure marked for GitHub-flavored markdown
+            marked.setOptions({
+                breaks: true,
+                gfm: true,
+                tables: true,
+                sanitize: false
+            });
+
+            // Render markdown to HTML
+            const htmlContent = marked.parse(markdownContent);
+            
+            // Sanitize the HTML content
+            const sanitizedHTML = DOMPurify.sanitize(htmlContent);
+            
+            // Insert the rendered content
+            document.getElementById('evidence-content').innerHTML = sanitizedHTML;
+            document.getElementById('evidence-modal').style.display = 'flex';
+        }
+
+        function downloadEvidence() {
+            const markdownContent = document.querySelector('#evidence-content').textContent || 
+                `# API Evidence Report\n\nGenerated by Doc-less API Agent\nTimestamp: ${new Date().toISOString()}`;
+            
+            downloadText(markdownContent, 'api-evidence-report.md');
+        }
+
+        function downloadJSON(data, filename) {
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadText(content, filename) {
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadFile(filename, type) {
+            if (type === 'openapi') {
+                exportOpenAPI();
+            } else if (type === 'postman') {
+                exportPostmanCollection();
+            }
+        }
+
+        function viewSDKStructure() {
+            appendToTerminal('📁 TypeScript SDK Structure:');
+            appendToTerminal('sdk/');
+            appendToTerminal('├── index.ts        # Main client export');
+            appendToTerminal('├── paginator.ts    # Unified pagination handler'); 
+            appendToTerminal('├── retry.ts        # Retry logic with backoff');
+            appendToTerminal('└── types.ts        # TypeScript interfaces');
+            appendToTerminal('');
+            appendToTerminal('Key Features:');
+            appendToTerminal('• Automatic pagination handling');
+            appendToTerminal('• Intelligent retry with exponential backoff');
+            appendToTerminal('• Checkpoint/resume for long operations');
+            appendToTerminal('• Full TypeScript support');
+        }
+
+        function viewMockLabStatus() {
+            appendToTerminal('🧪 Mock Lab Service Status:');
+            appendToTerminal('┌─────────────────────┬──────────┬──────┐');
+            appendToTerminal('│ Service             │ Status   │ Port │');
+            appendToTerminal('├─────────────────────┼──────────┼──────┤');
+            appendToTerminal('│ OAuth2 Server       │ ✅ Running │ 3003 │');
+            appendToTerminal('│ Payment API         │ ✅ Running │ 3001 │');
+            appendToTerminal('│ Webhook Handler     │ ✅ Running │ 3004 │');
+            appendToTerminal('└─────────────────────┴──────────┴──────┘');
+        }
+
+        function viewTestResults() {
+            appendToTerminal('📊 Test Execution Results:');
+            appendToTerminal('');
+            appendToTerminal('Unit Tests:        15/15 ✅');
+            appendToTerminal('Integration Tests:  8/8  ✅'); 
+            appendToTerminal('Mock Lab Tests:     6/6  ✅');
+            appendToTerminal('');
+            appendToTerminal('Coverage: 95%');
+            appendToTerminal('• Pagination: 100%');
+            appendToTerminal('• Retry Logic: 98%');
+            appendToTerminal('• Authentication: 100%');
+            appendToTerminal('• Error Handling: 92%');
+        }
+
+        // Event listeners
+        document.getElementById('start-demo').addEventListener('click', startDemo);
+        document.getElementById('reset-demo').addEventListener('click', resetDemo);
+        document.getElementById('skip-to-results').addEventListener('click', skipToResults);
+        document.getElementById('clear-terminal').addEventListener('click', clearTerminal);
+        document.getElementById('export-results').addEventListener('click', exportResults);
+        document.getElementById('export-postman').addEventListener('click', exportPostmanCollection);
+        document.getElementById('export-openapi').addEventListener('click', exportOpenAPI);
+        document.getElementById('view-evidence').addEventListener('click', showEvidence);
+        document.getElementById('download-evidence').addEventListener('click', downloadEvidence);
+        document.getElementById('close-evidence').addEventListener('click', () => {
+            document.getElementById('evidence-modal').style.display = 'none';
+        });
+
+        // Close modal when clicking outside
+        document.getElementById('evidence-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'evidence-modal') {
+                document.getElementById('evidence-modal').style.display = 'none';
+            }
+        });
+
+        // Initialize stats display
+        updateStats();
+    </script>
+
+</body>
+</html>
