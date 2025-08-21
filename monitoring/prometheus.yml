@@ -1,0 +1,51 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "alert_rules.yml"
+
+scrape_configs:
+  # API Agent monitoring
+  - job_name: 'api-agent'
+    static_configs:
+      - targets: ['api-agent:3000']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # Mock services monitoring
+  - job_name: 'payment-service'
+    static_configs:
+      - targets: ['payment-service:3001']
+    metrics_path: /health
+    scrape_interval: 30s
+
+  - job_name: 'oauth2-service'
+    static_configs:
+      - targets: ['oauth2-service:3003']
+    metrics_path: /health
+    scrape_interval: 30s
+
+  - job_name: 'webhook-service'
+    static_configs:
+      - targets: ['webhook-service:3004']
+    metrics_path: /health
+    scrape_interval: 30s
+
+  # Nginx monitoring
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx:80']
+    metrics_path: /nginx_status
+    scrape_interval: 30s
+
+  # Self monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
