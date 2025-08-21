@@ -23,13 +23,13 @@ services:
       context: ./mock-lab
       dockerfile: Dockerfile.webhook
     ports:
-      - "3002:3002"
+      - "3004:3004"
     environment:
       - NODE_ENV=development
-      - PORT=3002
+      - PORT=3004
       - WEBHOOK_SECRET=your-webhook-secret-key-here
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3004/health"]
       interval: 30s
       timeout: 10s
       retries: 3
