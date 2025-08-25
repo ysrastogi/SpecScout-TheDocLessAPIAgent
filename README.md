@@ -1,3 +1,14 @@
+---
+title: Doc-less API Agent
+emoji: 🔍
+colorFrom: blue
+colorTo: purple
+sdk: docker
+sdk_version: "4.27.2"
+app_file: app.py
+pinned: false
+---
+
 # Doc-less API Agent Demo
 
 A comprehensive demonstration of reverse-engineering APIs without documentation using the GitHub REST API as a case study.
