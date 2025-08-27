@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Debug - Doc-less API Agent</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #0f1419;
+            color: #e6edf3;
+            line-height: 1.6;
+        }
+        .status-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 16px 0;
+        }
+        .success { border-left: 4px solid #28a745; }
+        .warning { border-left: 4px solid #ffc107; }
+        .error { border-left: 4px solid #dc3545; }
+        .info { border-left: 4px solid #17a2b8; }
+        
+        button {
+            background: #238636;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 4px;
+        }
+        button:hover { background: #2ea043; }
+        
+        pre {
+            background: #0d1117;
+            border: 1px solid #21262d;
+            border-radius: 6px;
+            padding: 16px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        
+        .endpoint {
+            background: #21262d;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 14px;
+            margin: 4px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Doc-less API Agent - Debug Console</h1>
+    
+    <div class="status-card success">
+        <h3>✅ Server Status</h3>
+        <p>The server is running and this page loaded successfully!</p>
+        <div class="endpoint">Status: <span style="color: #28a745;">Online</span></div>
+        <div class="endpoint">Environment: Hugging Face Spaces</div>
+        <div class="endpoint">Time: <span id="current-time"></span></div>
+    </div>
+
+    <div class="status-card info">
+        <h3>🧪 Test Endpoints</h3>
+        <p>Click these buttons to test different endpoints:</p>
+        <button onclick="testEndpoint('/health')">Test Health Check</button>
+        <button onclick="testEndpoint('/test')">Test Simple Endpoint</button>
+        <button onclick="testEndpoint('/api/status')">Test API Status</button>
+        <button onclick="testEndpoint('/spaces/info')">Test Spaces Info</button>
+        <button onclick="window.location.href='/'">Go to Main Demo</button>
+    </div>
+
+    <div class="status-card">
+        <h3>📊 Endpoint Test Results</h3>
+        <div id="test-results">
+            <p>Click a test button above to see results...</p>
+        </div>
+    </div>
+
+    <div class="status-card info">
+        <h3>🌐 Available Endpoints</h3>
+        <div class="endpoint">GET / - Main Demo Interface</div>
+        <div class="endpoint">GET /health - Health Check (JSON)</div>
+        <div class="endpoint">GET /test - Simple Test (JSON)</div>
+        <div class="endpoint">GET /api/status - Service Status</div>
+        <div class="endpoint">GET /spaces/info - Space Information</div>
+        <div class="endpoint">GET /api/demo/stream - Demo Streaming</div>
+        <div class="endpoint">GET /debug - This Debug Page</div>
+    </div>
+
+    <div class="status-card warning">
+        <h3>🔍 Common Issues</h3>
+        <ul>
+            <li><strong>Cache Issues</strong>: Try hard refresh (Ctrl+F5 or Cmd+Shift+R)</li>
+            <li><strong>DNS Issues</strong>: Wait a few minutes and try again</li>
+            <li><strong>Browser Issues</strong>: Try a different browser or incognito mode</li>
+            <li><strong>Network Issues</strong>: Check your internet connection</li>
+        </ul>
+    </div>
+
+    <script>
+        // Update current time
+        function updateTime() {
+            document.getElementById('current-time').textContent = new Date().toISOString();
+        }
+        updateTime();
+        setInterval(updateTime, 1000);
+
+        // Test endpoint function
+        async function testEndpoint(endpoint) {
+            const resultsDiv = document.getElementById('test-results');
+            resultsDiv.innerHTML = `<p>Testing ${endpoint}...</p>`;
+            
+            try {
+                const response = await fetch(endpoint);
+                const data = await response.text();
+                
+                let parsedData;
+                try {
+                    parsedData = JSON.parse(data);
+                    parsedData = JSON.stringify(parsedData, null, 2);
+                } catch {
+                    parsedData = data;
+                }
+                
+                resultsDiv.innerHTML = `
+                    <div class="status-card success">
+                        <h4>✅ ${endpoint} - Status: ${response.status}</h4>
+                        <pre>${parsedData}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="status-card error">
+                        <h4>❌ ${endpoint} - Error</h4>
+                        <pre>${error.message}</pre>
+                    </div>
+                `;
+            }
+        }
+
+        // Auto-test health endpoint on load
+        setTimeout(() => testEndpoint('/health'), 1000);
+    </script>
+</body>
+</html>
