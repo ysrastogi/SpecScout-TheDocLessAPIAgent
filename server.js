@@ -75,6 +75,19 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'demo-interface.html'));
 });
 
+// Simple test route for debugging
+app.get('/test', (req, res) => {
+    console.log(`🧪 Test endpoint accessed from ${req.ip}`);
+    res.json({
+        status: 'success',
+        message: 'Doc-less API Agent is working!',
+        timestamp: new Date().toISOString(),
+        environment: IS_SPACES ? 'Hugging Face Spaces' : 'Local',
+        port: PORT,
+        uptime: process.uptime()
+    });
+});
+
 // Health check endpoint with detailed information
 app.get('/health', async (req, res) => {
     const health = {
@@ -418,6 +431,10 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log('💾 Workspace directory:', WORKSPACE_DIR);
     console.log('🎯 Environment:', IS_SPACES ? 'Hugging Face Spaces' : 'Local Development');
     console.log(`🎥 Streaming service: ${streamingService.getActiveSessionsCount()} active sessions`);
+    
+    // Initialize storage manager after server starts
+    console.log('💾 Storage manager initialized:', WORKSPACE_DIR);
+    console.log('⏰ Cleanup timer started (every 60 minutes)');
 });
 
 module.exports = app;
