@@ -21,20 +21,11 @@ if (IS_SPACES) {
     // Trust proxy for Spaces environment
     app.set('trust proxy', true);
     
-    // Add Spaces-specific headers and force HTTPS
+    // Add Spaces-specific headers
     app.use((req, res, next) => {
-        // Force HTTPS redirect in Spaces
-        if (req.header('x-forwarded-proto') !== 'https') {
-            res.redirect(`https://${req.header('host')}${req.url}`);
-            return;
-        }
-        
         res.setHeader('X-Frame-Options', 'SAMEORIGIN');
         res.setHeader('X-Content-Type-Options', 'nosniff');
         res.setHeader('X-Powered-By', 'Doc-less API Agent on Spaces');
-        res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-        res.setHeader('X-XSS-Protection', '1; mode=block');
-        res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
         next();
     });
 }
@@ -90,7 +81,7 @@ app.get('/', (req, res) => {
         res.setHeader('Expires', '0');
         
         // Send the file with error handling
-        res.sendFile(path.join(__dirname, 'demo-interface.html'), (err) => {
+        res.sendFile(path.join(__dirname, 'demo-interface-fixed.html'), (err) => {
             if (err) {
                 console.error('❌ Error serving demo interface:', err);
                 res.status(500).send(`
