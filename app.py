@@ -103,10 +103,15 @@ class SpacesNodeServer:
     def health_check(self, timeout=5):
         """Perform comprehensive health check"""
         try:
+            # Always use HTTP for internal health checks (not HTTPS)
+            health_url = f'http://localhost:{self.port}/health'
+            logger.debug(f"🔍 Health check URL: {health_url}")
+            
             response = requests.get(
-                f'http://localhost:{self.port}/health', 
+                health_url, 
                 timeout=timeout,
-                headers={'User-Agent': 'Spaces-Health-Check'}
+                headers={'User-Agent': 'Spaces-Health-Check'},
+                allow_redirects=False  # Don't follow redirects for health checks
             )
             
             if response.status_code == 200:
