@@ -9,6 +9,9 @@
     <meta name="description" content="Live interactive demo of the Doc-less API Agent - Transform undocumented APIs into production-ready SDKs">
     <meta name="theme-color" content="#297373">
     
+    <!-- Prevent favicon.ico requests -->
+    <link rel="icon" href="data:,">
+    
     <!-- Preload critical resources -->
     <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -525,9 +528,6 @@
             <div class="spaces-embed">
                 <h1 class="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-2">The Doc-less API Agent</h1>
                 <p class="text-lg md:text-xl mb-4" style="color: var(--arylide-yellow);">Live Interactive Demo</p>
-                <div class="text-sm text-gray-400 mb-4">
-                    🚀 Optimized for Hugging Face Spaces | 📱 Mobile-friendly Interface
-                </div>
                 <div class="progress-container">
                     <div id="progress" class="progress-bar" style="width: 0%"></div>
                 </div>
