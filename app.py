@@ -120,6 +120,25 @@ class SpacesNodeServer:
                 
         except requests.RequestException as e:
             logger.warning(f"⚠️ Health check failed: {e}")
+            
+            # Additional debugging for Spaces
+            if self.is_spaces:
+                try:
+                    # Check if the port is actually listening
+                    import socket
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.settimeout(2)
+                    result = sock.connect_ex(('localhost', self.port))
+                    sock.close()
+                    
+                    if result == 0:
+                        logger.info(f"🔍 Port {self.port} is open but health endpoint failed")
+                    else:
+                        logger.warning(f"🔍 Port {self.port} is not accessible")
+                        
+                except Exception as debug_e:
+                    logger.warning(f"🔍 Debug check failed: {debug_e}")
+            
             return False
 
     def wait_for_server(self, max_retries=30, delay=2):
