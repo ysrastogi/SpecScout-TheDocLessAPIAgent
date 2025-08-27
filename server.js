@@ -21,11 +21,20 @@ if (IS_SPACES) {
     // Trust proxy for Spaces environment
     app.set('trust proxy', true);
     
-    // Add Spaces-specific headers
+    // Add Spaces-specific headers and force HTTPS
     app.use((req, res, next) => {
+        // Force HTTPS redirect in Spaces
+        if (req.header('x-forwarded-proto') !== 'https') {
+            res.redirect(`https://${req.header('host')}${req.url}`);
+            return;
+        }
+        
         res.setHeader('X-Frame-Options', 'SAMEORIGIN');
         res.setHeader('X-Content-Type-Options', 'nosniff');
         res.setHeader('X-Powered-By', 'Doc-less API Agent on Spaces');
+        res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+        res.setHeader('X-XSS-Protection', '1; mode=block');
+        res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
         next();
     });
 }
@@ -71,8 +80,46 @@ app.use(express.static('.', {
 
 // Main route - serve the demo interface
 app.get('/', (req, res) => {
-    console.log(`📱 Serving demo interface to ${req.ip}`);
-    res.sendFile(path.join(__dirname, 'demo-interface.html'));
+    try {
+        console.log(`📱 Serving demo interface to ${req.ip} - User Agent: ${req.get('User-Agent')?.substring(0, 50)}...`);
+        
+        // Add headers for better compatibility
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        
+        // Send the file with error handling
+        res.sendFile(path.join(__dirname, 'demo-interface.html'), (err) => {
+            if (err) {
+                console.error('❌ Error serving demo interface:', err);
+                res.status(500).send(`
+                    <!DOCTYPE html>
+                    <html>
+                    <head><title>Doc-less API Agent</title></head>
+                    <body style="font-family: Arial, sans-serif; padding: 20px;">
+                        <h1>🤖 Doc-less API Agent</h1>
+                        <p>Demo interface is loading...</p>
+                        <p>Server Status: ✅ Running</p>
+                        <p>Environment: ${IS_SPACES ? 'Hugging Face Spaces' : 'Local'}</p>
+                        <p>Port: ${PORT}</p>
+                        <p>Time: ${new Date().toISOString()}</p>
+                        <a href="/health">Health Check</a> | 
+                        <a href="/test">Test Endpoint</a> | 
+                        <a href="/api/status">API Status</a>
+                    </body>
+                    </html>
+                `);
+            }
+        });
+    } catch (error) {
+        console.error('❌ Fatal error in main route:', error);
+        res.status(500).json({ 
+            error: 'Internal Server Error',
+            message: 'Unable to serve demo interface',
+            timestamp: new Date().toISOString()
+        });
+    }
 });
 
 // Simple test route for debugging
@@ -88,6 +135,12 @@ app.get('/test', (req, res) => {
     });
 });
 
+// Debug page for troubleshooting
+app.get('/debug', (req, res) => {
+    console.log(`🔧 Debug page accessed from ${req.ip}`);
+    res.sendFile(path.join(__dirname, 'debug.html'));
+});
+
 // Health check endpoint with detailed information
 app.get('/health', async (req, res) => {
     const health = {
@@ -99,6 +152,11 @@ app.get('/health', async (req, res) => {
         version: process.env.npm_package_version || '1.0.0',
         memory: process.memoryUsage(),
         workspace: WORKSPACE_DIR,
+        request_info: {
+            ip: req.ip,
+            user_agent: req.get('User-Agent'),
+            headers: req.headers
+        },
         services: {
             streaming: {
                 active_sessions: streamingService.getActiveSessionsCount(),
@@ -117,6 +175,12 @@ app.get('/health', async (req, res) => {
         health.workspace_error = error.message;
     }
 
+    // Add CORS headers for health check
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET');
+    res.setHeader('Cache-Control', 'no-cache');
+    
+    console.log(`🏥 Health check from ${req.ip} - Status: ${health.status}`);
     res.json(health);
 });
 
